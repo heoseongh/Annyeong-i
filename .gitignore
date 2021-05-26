@@ -1,0 +1,8 @@
+### system ###
+*.sh
+
+### python ###
+__pycache__/
+
+# Environments
+venv/
