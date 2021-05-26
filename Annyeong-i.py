@@ -11,7 +11,7 @@ from six.moves import queue
 
 import uuid
 import json
-import api.dialogFlowAPI as API # 안녕이 서버 모듈 임포트
+import api.Index as API # 안녕이 서버 모듈 임포트
 
 # 실시간 스트림 서비스는 최대 5분 까지만 제공이 가능하다.
 
@@ -126,7 +126,9 @@ def listen_print_loop(responses):
             # 한번만 작동시키기 위해서 (isStarted == False) 조건 추가
             if re.search(r"\b(시작|좋은 아침|안녕|나왔어)\b", transcript, re.I) and isStarted == False:
                 isStarted = True
-                print('안녕이 서비스를 시작합니다.')
+                wlecome = '안녕이 서비스를 시작합니다.'
+                print(wlecome)
+                API.toSpeech(wlecome)
                 print('==================================')
                 continue
 
@@ -152,6 +154,7 @@ def listen_print_loop(responses):
                     answer = API.getAnswer(transcript)
                     res_data = API.getResponseData(transcript)
                     print('안녕이: ' + answer)
+                    API.toSpeech(answer)
                     print('감정: ' + API.getEmotion(res_data))
                     print('----------------')
                     
