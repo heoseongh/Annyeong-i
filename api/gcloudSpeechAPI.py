@@ -28,5 +28,10 @@ def toSpeech(text):
     with open("answer.mp3", "wb") as out:
         out.write(response.audio_content)
         # print('mp3 파일이 성공적으로 생성되었습니다.')
-        
-    playsound('answer.mp3')
+    
+    print(text)
+    playsound('answer.mp3', block=True)
+    
+    # 답변 겹치지 않도록 딜레이 주기
+    import time
+    time.sleep(len(text)/12)
