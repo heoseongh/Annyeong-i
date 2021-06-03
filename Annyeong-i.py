@@ -203,14 +203,62 @@ def listen_print_loop(responses):
                     print('감정분석: ' + emotion)
                     print('----------------')
                     API.toSpeech(answer) # 답장 음성으로 송출
+                    API.stateStore.setEmotion(emotion) # 감정 분석 결과 저장
 
                     # 만약 감정이 '우울'이라면, 우울한 감정에 맞는 노래를 송출해준다.
-                    if(emotion == '우울'):
+                    if(emotion == '부정'):
+                        import depress_aws
+                        depressResult = depress_aws.startModel(transcript)
                         API.toSpeech("제가 음악 한 곡 들려드릴게요. 이 음악 듣고 위로가 되었으면 좋겠어요.")
-                        # TODO S3에서 음악파일 다운로드 API 호출
-                        # Nagative Music List 목록 받기
-                        musicFiles = [
-                            "../Music/Nagative/n-1-001.mp3","../Music/Nagative/n-2-001.mp3","../Music/Nagative/n-3-001.mp3"]
+                        if depressResult == '우울':
+                            # S3에서 음악파일 다운로드 API 호출
+                            # Nagative Music List 받기
+                            musicFiles = API.downloadMultiFile('music/depress')
+                            """
+                            musicFiles = ["./Music/Nagative/n-1-001.mp3","../Music/Nagative/n-2-001.mp3","../Music/Nagative/n-3-001.mp3"
+                            """
+                            # 음악 리스트 출력
+                            print('[Music List]')
+                            for musicFile in musicFiles:
+                                print(musicFile)
+                            # 뮤직플레이어 생성 (음악 파일 리스트, 플레이 타입 설정)
+                            musicPlayer = MusicPlayer(musicFiles, playType='random')
+                            # 음악 재생
+                            musicPlayer.playMusic()
+                            # 음악이 재생되었다는 플래그 설정
+                            musicStarted = True
+                            continue
+                        if depressResult == '슬픔':
+                            # S3에서 음악파일 다운로드 API 호출
+                            # Nagative Music List 받기
+                            musicFiles = API.downloadMultiFile('music/')
+                            """
+                            musicFiles = ["./Music/Nagative/n-1-001.mp3","../Music/Nagative/n-2-001.mp3","../Music/Nagative/n-3-001.mp3"
+                            """
+                            # 음악 리스트 출력
+                            print('[Music List]')
+                            for musicFile in musicFiles:
+                                print(musicFile)
+                            # 뮤직플레이어 생성 (음악 파일 리스트, 플레이 타입 설정)
+                            musicPlayer = MusicPlayer(musicFiles, playType='random')
+                            # 음악 재생
+                            musicPlayer.playMusic()
+                            # 음악이 재생되었다는 플래그 설정
+                            musicStarted = True
+                            continue
+
+
+                    # 만약 감정이 '긍정'이라면, 감정에 맞는 노래를 송출해준다.
+                    if(emotion == '행복'):
+                        API.toSpeech("음악을 들으면 더 행복하실거에요. 음악 한 곡 들려드릴게요.")
+                        # S3에서 음악파일 다운로드 API 호출
+                        # Positive Music List 받기
+                        musicFiles = API.downloadMultiFile('music/positive')
+                        # musicFiles = ['./music/positive/001.mp3','./music/positive/002.mp3','./music/positive/003.mp3']
+                        # 음악 리스트 출력
+                        print('[Music List]')
+                        for musicFile in musicFiles:
+                            print(musicFile)
                         # 뮤직플레이어 생성 (음악 파일 리스트, 플레이 타입 설정)
                         musicPlayer = MusicPlayer(musicFiles, playType='random')
                         # 음악 재생
