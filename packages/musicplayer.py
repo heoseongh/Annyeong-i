@@ -36,7 +36,19 @@ class MusicPlayer:
     def setPlayType(self, playType):
         self.playType = playType
 
+    #== Getter ==#
+    def getTotalMusicFiles(self):
+        return len(self.musicFiles)
+
+    
     #====================== 편의 메서드 ======================#
+    # @description: 음악파일 존재하는지 알려주는 메서드
+    # @return: True/False (boolean)
+    def isExistMusicFile(self):
+        if self.getTotalMusicFiles == 0:
+            return False
+        else: 
+            return True
     
     # 재생 타입 변경(랜덤재생 or 순차재생)
     def changePlayType(self, playType):
