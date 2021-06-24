@@ -69,14 +69,14 @@ def downloadFile(local_file, bucket_file):
 
 # @description: S3 다중 파일 업로드 메서드
 # @param: local_file, bucket_file (string, string)
-def multiUploadFile(files, PREFIX):
+def multiUploadFile(files, prefix):
 
     s3 = s3ConnectionClient() # s3 클라이언트 연결
 
     for file in files:
 
-        if PREFIX:
-            UPLOAD_FILE_NAME = PREFIX + "/" + file
+        if prefix:
+            UPLOAD_FILE_NAME = prefix + "/" + file
         else:
             UPLOAD_FILE_NAME = file
 
@@ -86,4 +86,52 @@ def multiUploadFile(files, PREFIX):
             BUCKET_NAME, # 버킷 이름
             UPLOAD_FILE_NAME, # 업로드할 파일명
         )
+# @description: S3 버킷의 파일 갯수 계산 메서드
+# @param: prefix (string)
+def totalObjects(prefix):
 
+    s3 = s3ConnectionResource() # S3 리소스 연결
+
+    bucket = s3.Bucket(BUCKET_NAME)
+    objects = bucket.objects.filter(Prefix=prefix)
+
+    # 객체 총 갯수 세기
+    totalCount = 0
+    for object in objects:
+        print(object)
+        totalCount += 1
+    
+    return totalCount
+
+
+# @description: S3 다중 파일 다운로드 메서드
+# @param: prefix (string)
+# @return: s3BucketMusicList (list)
+def downloadMultiFile(prefix):
+    import botocore
+
+    s3 = s3ConnectionResource() # S3 리소스 연결
+
+    bucket = s3.Bucket(BUCKET_NAME)
+    objects = bucket.objects.filter(Prefix=prefix).limit(5) # s3 버킷에서 5곡만 받아오기
+    
+    s3BucketMusicList = []
+
+
+    for object in objects:
+        file_name = object.key
+        if file_name == prefix + '/': continue
+
+        s3BucketMusicList.append(file_name)
+        
+        # 디렉터리 생성
+        if not os.path.exists(os.path.dirname(file_name)):
+            os.makedirs(os.path.dirname(file_name))
+        # 파일 다운로드
+        if not os.path.exists(file_name):
+            bucket.download_file(file_name, file_name) # pull path인 것을 잊지 말자.
+            print(file_name + ' ok!')
+
+    print('음악 리스트 동기화 완료.')
+
+    return s3BucketMusicList
