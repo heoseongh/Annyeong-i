@@ -1,3 +1,4 @@
+from time import sleep
 from playsound import playsound
 
 def toSpeech(text):
@@ -30,8 +31,12 @@ def toSpeech(text):
         # print('mp3 파일이 성공적으로 생성되었습니다.')
     
     print(text)
-    playsound('answer.mp3', block=True)
+    playsound('answer.mp3')
     
     # 답변 겹치지 않도록 딜레이 주기
+    soundLength = len(text)
     import time
-    time.sleep(len(text)/12)
+    # if soundLength < 5:
+    #     time.sleep(1)
+    # else:
+    time.sleep(len(text)/5)
