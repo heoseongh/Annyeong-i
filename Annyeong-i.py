@@ -88,6 +88,7 @@ class MicrophoneStream(object):
 def listen_print_loop(responses):
     
     serviceStarted = False
+    settingComplete = False
     musicStarted = False
     conversations = []
 
@@ -122,139 +123,126 @@ def listen_print_loop(responses):
             continue
         
         # 실제 변환된 텍스트가 담긴 부분
-        transcript = result.alternatives[0].transcript
+        transcript = result.alternatives[0].transcript.strip()
 
         # 이전에 출력된 텍스트를 덮어씌우기 위한 공백
         overwrite_chars = " " * (num_chars_printed - len(transcript))
 
-        if not result.is_final:
-            """
-            다음 결과와 같이 이전에 출력된 텍스트를 공백으로 덮어씌우면서 출력하여 마치 하나의 문장인 것 처럼 보여준다.
-            >>> 안녕
-            >>> 안녕하
-            >>> 안녕하세요
-            >>> result: 안녕하세요 
-            문장의 마지막 단어가 아니라면
-            이전에 출력된 텍스트 길이(num_chars_printed)에서 현재 발화의 길이(len(transcript))만큼을 공백으로 덮어씌우고,
-            커서를 맨 앞으로 캐리지리턴(carriage return) 한다.
-            """
-            sys.stdout.write(transcript + overwrite_chars + "\r") 
-            sys.stdout.flush()
+        # if not result.is_final:
+        """
+        다음 결과와 같이 이전에 출력된 텍스트를 공백으로 덮어씌우면서 출력하여 마치 하나의 문장인 것 처럼 보여준다.
+        >>> 안녕
+        >>> 안녕하
+        >>> 안녕하세요
+        >>> result: 안녕하세요 
+        문장의 마지막 단어가 아니라면
+        이전에 출력된 텍스트 길이(num_chars_printed)에서 현재 발화의 길이(len(transcript))만큼을 공백으로 덮어씌우고,
+        커서를 맨 앞으로 캐리지리턴(carriage return) 한다.
+        """
+        sys.stdout.write(transcript + overwrite_chars + "\r") 
+        sys.stdout.flush()
 
-            num_chars_printed = len(transcript)
+        num_chars_printed = len(transcript)
 
-        else:
-            # 안녕이 서비스가 동작하지 않고 있는 경우(serviceStarted == False) 다음의 방법으로 안녕이를 시작할 수 있다.
-            if not serviceStarted:
-                # 다음의 단어들 중 한 단어 이상 포함시켜서 말하면 안녕이 서비스가 시작된다.
-                # start keyword: 시작, 좋은 아침, 안녕, 나왔어
-                if re.search(r"\b(시작|좋은 아침|안녕|나왔어)\b", transcript, re.I):
-                    serviceStarted = True # 서비스 시작 플래그 셋팅
-                    # 안녕이 서비스 시작 멘트
-                    print("안녕이 서비스를 시작합니다.")
-                    API.toSpeech("안녕이 서비스를 시작합니다.")
-                    print('==================================')
-                    # 안녕이가 먼저 첫 질문을 건네며 대화를 시작한다.
-                    API.toSpeech("오늘 하루 어떠셨나요?") # TODO 스타트를 어떻게 끊을지 생각해봐야 할 듯
-                    print("오늘 하루 어떠셨나요?")
+        # else:
+        # 안녕이 서비스가 동작하지 않고 있는 경우(serviceStarted == False) 다음의 방법으로 안녕이를 시작할 수 있다.
+        if not serviceStarted:
+            # 다음의 단어들 중 한 단어 이상 포함시켜서 말하면 안녕이 서비스가 시작된다.
+            # start keyword: 시작, 좋은 아침, 안녕, 나왔어
+            if re.search(r"\b(시작|좋은 아침|안녕|나왔어)\b", transcript, re.I):
+                serviceStarted = True # 서비스 시작 플래그 셋팅
+                # 안녕이 서비스 시작 멘트
+                API.toSpeech("안녕이 서비스를 시작합니다. 잠시만 기다려주세요.")
+                # 우울 분석 모델 임포트 및 사용 준비
+                print(">>> 감정 분석 모델 불러오는중...")
+                from model.SentimentAnalysisModel import DepressAnalysisModel
+                model = DepressAnalysisModel() # TODO 오래 걸리므로 쓰레드로 처리할 것
+                print('>>> 모델 준비 완료!')
+                print('================================================')
+                
+                # 안녕이 초기 설정 시작 멘트
+                API.toSpeech("안녕하세요. 제 이름은 안녕이에요.")
+                API.toSpeech("제가 이름을 불러드릴 수 있도록 저에게 이름을 알려주세요.")
+                # 안녕이가 먼저 첫 질문을 건네며 대화를 시작한다.
+                # API.toSpeech("오늘 하루 어떠셨나요?") # TODO 스타트를 어떻게 끊을지 생각해봐야 할 듯
+                # print("오늘 하루 어떠셨나요?")
+                continue
+        
+        if serviceStarted:
+            # 안녕이 초기 설정 로직
+            if not settingComplete:
+                if transcript == '예' or transcript == '네':
+                    settingComplete = True
+                    API.toSpeech(user_name + "님 반갑습니다.")
+                    API.toSpeech("오늘 하루는 어떠셨나요?")
                     continue
-            
-            if serviceStarted:
-                if musicStarted:
-                    """
-                    음악이 재생중인 경우, 음성으로 컨트롤할 수 있는 기능들이다.
-                    """
-                    # 음악 종료 기능
-                    if re.search(r"\b(음악 종료|음악 꺼줘|그만 들을래)\b", transcript, re.I):
-                        API.toSpeech("음악 재생을 종료합니다.")
-                        musicPlayer.stopMusic()
-                        musicStarted = False
-                        continue
-                    # 다음 음악 재생 기능
-                    if re.search(r"\b(다음 노래|다른 음악)\b", transcript, re.I):
-                        musicPlayer.stopMusic()
-                        API.toSpeech("다음 음악을 재생합니다.")
-                        musicPlayer.playNextMusic()
-                        continue
-
-                # 안녕이 종료하기 
-                # 지정해놓은 단어를 말하면 종료할 수 있다.
-                # stop keyword: 종료, 잘자, 잘게, 잔다, 바이바이
-                elif re.search(r"\b(종료|잘자|잘게|잔다|바이바이)\b", transcript, re.I):
-                    API.toSpeech("안녕이 서비스를 종료합니다.")
-                    print("안녕이 서비스를 종료합니다.")
-                    # 대화 내용 파일에 저장하기
-                    with open('conversation.json', 'w') as f:
-                        f.write(json.dumps(conversations, ensure_ascii=False))
-                    print("총 " + str(len(conversations)) + "건의 대화가 저장되었습니다.")
-                    serviceStarted = False # 서비스 종료 플래그 셋팅
+                elif transcript == '아니오' or transcript == '아니요':
+                    API.toSpeech("다시 한 번 말씀해주세요.")
                     continue
-
                 else:
-                    """
-                    사용자가 안녕이와 대화 가능한 조건은
-                    1. 안녕이 서비스가 동작중이고,
-                    2. 음악이 재생되고 있지 않는 경우이다.
-                    """
-                    print('사용자: ' + transcript + overwrite_chars)
-                    # 안녕이 답장 받아오기 (답장에는 감정 데이터도 함께 온다.)
-                    (answer, emotion) = API.getResponseData(transcript)
-                    print('안녕이: ' + answer)
-                    print('감정분석: ' + emotion)
-                    print('----------------')
-                    API.toSpeech(answer) # 답장 음성으로 송출
-                    API.stateStore.setEmotion(emotion) # 감정 분석 결과 저장
+                    user_name = transcript
+                    API.toSpeech(user_name + "님이 맞으신가요? 예, 아니오로 대답해주세요.")
+                    continue
 
-                    # 만약 감정이 '우울'이라면, 우울한 감정에 맞는 노래를 송출해준다.
-                    if(emotion == '부정'):
-                        import depress_aws
-                        depressResult = depress_aws.startModel(transcript)
-                        API.toSpeech("제가 음악 한 곡 들려드릴게요. 이 음악 듣고 위로가 되었으면 좋겠어요.")
-                        if depressResult == '우울':
-                            # S3에서 음악파일 다운로드 API 호출
-                            # Nagative Music List 받기
-                            musicFiles = API.downloadMultiFile('music/depress')
-                            """
-                            musicFiles = ["./Music/Nagative/n-1-001.mp3","../Music/Nagative/n-2-001.mp3","../Music/Nagative/n-3-001.mp3"
-                            """
-                            # 음악 리스트 출력
-                            print('[Music List]')
-                            for musicFile in musicFiles:
-                                print(musicFile)
-                            # 뮤직플레이어 생성 (음악 파일 리스트, 플레이 타입 설정)
-                            musicPlayer = MusicPlayer(musicFiles, playType='random')
-                            # 음악 재생
-                            musicPlayer.playMusic()
-                            # 음악이 재생되었다는 플래그 설정
-                            musicStarted = True
-                            continue
-                        if depressResult == '슬픔':
-                            # S3에서 음악파일 다운로드 API 호출
-                            # Nagative Music List 받기
-                            musicFiles = API.downloadMultiFile('music/')
-                            """
-                            musicFiles = ["./Music/Nagative/n-1-001.mp3","../Music/Nagative/n-2-001.mp3","../Music/Nagative/n-3-001.mp3"
-                            """
-                            # 음악 리스트 출력
-                            print('[Music List]')
-                            for musicFile in musicFiles:
-                                print(musicFile)
-                            # 뮤직플레이어 생성 (음악 파일 리스트, 플레이 타입 설정)
-                            musicPlayer = MusicPlayer(musicFiles, playType='random')
-                            # 음악 재생
-                            musicPlayer.playMusic()
-                            # 음악이 재생되었다는 플래그 설정
-                            musicStarted = True
-                            continue
+            if musicStarted:
+                """
+                음악이 재생중인 경우, 음성으로 컨트롤할 수 있는 기능들이다.
+                """
+                # 음악 종료 기능
+                if re.search(r"\b(음악 종료|음악 꺼줘|그만 들을래)\b", transcript, re.I):
+                    API.toSpeech("음악 재생을 종료합니다.")
+                    musicPlayer.stopMusic()
+                    musicStarted = False
+                    continue
+                # 다음 음악 재생 기능
+                if re.search(r"\b(다음 노래|다른 음악|다른 노래)\b", transcript, re.I):
+                    musicPlayer.stopMusic()
+                    API.toSpeech("다음 음악을 재생합니다.")
+                    musicPlayer.playNextMusic()
+                    continue
 
+            # 안녕이 종료하기 
+            # 지정해놓은 단어를 말하면 종료할 수 있다.
+            # stop keyword: 종료, 잘자, 잘게, 잔다, 바이바이
+            elif re.search(r"\b(종료|잘자|잘게|잔다|바이바이)\b", transcript, re.I):
+                API.toSpeech("안녕이 서비스를 종료합니다.")
+                print("안녕이 서비스를 종료합니다.")
+                # 대화 내용 파일에 저장하기
+                with open('conversation.json', 'w') as f:
+                    f.write(json.dumps(conversations, ensure_ascii=False))
+                print("총 " + str(len(conversations)) + "건의 대화가 저장되었습니다.")
+                serviceStarted = False # 서비스 종료 플래그 셋팅
+                continue
 
-                    # 만약 감정이 '긍정'이라면, 감정에 맞는 노래를 송출해준다.
-                    if(emotion == '행복'):
-                        API.toSpeech("음악을 들으면 더 행복하실거에요. 음악 한 곡 들려드릴게요.")
+            else:
+                """
+                사용자가 안녕이와 대화 가능한 조건은
+                1. 안녕이 서비스가 동작중이고,
+                2. 음악이 재생되고 있지 않는 경우이다.
+                """
+                print('사용자: ' + transcript + overwrite_chars)
+                # 안녕이 답장 받아오기 (답장에는 긍/부정 데이터도 함께 온다.)
+                (answer, emotion) = API.getResponseData(transcript)
+                print('안녕이: ' + answer)
+                # print('감정: ' + emotion)
+                print('------------------------------------------------')
+                API.toSpeech(answer) # 답장 음성으로 송출
+                # TODO emotion -> 리스피커에 전달
+                # API.stateStore.setEmotion(emotion) # 감정 분석 결과 저장
+
+                # 만약 감정이 '부정'이라면, 감정을 분석한다.
+                if(emotion == '부정'):
+                    API.toSpeech("제가 음악 한 곡 들려드릴게요. 이 음악 듣고 위로가 되었으면 좋겠어요.")
+                    depressResult = model.category_evaluation_predict(transcript)
+                    
+                    # 감정 분석 결과, 우울인 경우
+                    if depressResult == '우울':
                         # S3에서 음악파일 다운로드 API 호출
-                        # Positive Music List 받기
-                        musicFiles = API.downloadMultiFile('music/positive')
-                        # musicFiles = ['./music/positive/001.mp3','./music/positive/002.mp3','./music/positive/003.mp3']
+                        # Nagative Music List 받기
+                        musicFiles = API.downloadMultiFile('music/depress')
+                        """
+                        musicFiles = ["./Music/Nagative/n-1-001.mp3","../Music/Nagative/n-2-001.mp3","../Music/Nagative/n-3-001.mp3"
+                        """
                         # 음악 리스트 출력
                         print('[Music List]')
                         for musicFile in musicFiles:
@@ -266,16 +254,56 @@ def listen_print_loop(responses):
                         # 음악이 재생되었다는 플래그 설정
                         musicStarted = True
                         continue
-                
-                # 대화 배열에 적재하기
-                UUID = str(uuid.uuid1()) # 객체 구별을 위한 랜덤 값 생성
-                conversation = { "id": UUID, "user": transcript, "answer": answer, "emotion": emotion}
-                conversations.append(conversation)
 
-            num_chars_printed = 0
+                    # 감정 분석 결과, 슬픔인 경우
+                    if depressResult == '슬픔':
+                        musicFiles = API.downloadMultiFile('music/sadness')
+                        print('[Music List]')
+                        for musicFile in musicFiles:
+                            print(musicFile)
+                        musicPlayer = MusicPlayer(musicFiles, playType='random')
+                        musicPlayer.playMusic()
+                        musicStarted = True
+                        continue
+
+                    # 감정 분석 결과, 분노인 경우
+                    if depressResult == '분노':
+                        musicFiles = API.downloadMultiFile('music/anger')
+                        print('[Music List]')
+                        for musicFile in musicFiles:
+                            print(musicFile)
+                        musicPlayer = MusicPlayer(musicFiles, playType='random')
+                        musicPlayer.playMusic()
+                        musicStarted = True
+                        continue
+
+                # 만약 감정이 '긍정'이라면, 감정에 맞는 노래를 송출해준다.
+                if(emotion == '긍정'):
+                    API.toSpeech("음악을 들으면 더 행복하실거에요. 음악 한 곡 들려드릴게요.")
+                    # S3에서 음악파일 다운로드 API 호출
+                    # Positive Music List 받기
+                    musicFiles = API.downloadMultiFile('music/positive')
+                    # 음악 리스트 출력
+                    print('[Music List]')
+                    for musicFile in musicFiles:
+                        print(musicFile)
+                    # 뮤직플레이어 생성 (음악 파일 리스트, 플레이 타입 설정)
+                    musicPlayer = MusicPlayer(musicFiles, playType='random')
+                    # 음악 재생
+                    musicPlayer.playMusic()
+                    # 음악이 재생되었다는 플래그 설정
+                    musicStarted = True
+                    continue
+            
+            # 대화 배열에 적재하기
+            UUID = str(uuid.uuid1()) # 객체 구별을 위한 랜덤 값 생성
+            conversation = { "id": UUID, "user": transcript, "answer": answer, "emotion": emotion}
+            conversations.append(conversation)
+
+        num_chars_printed = 0
 
 def main():
-    print('============= 안녕이 v1 =============')
+    print('==================== 안녕이 v1 ====================')
 
     # 언어 설정 = ko(한국어)
     # 다른 나라 언어는 아래 링크 참고(들어가서 BCP-47 태그 확인)
@@ -290,7 +318,9 @@ def main():
     )
 
     streaming_config = speech.StreamingRecognitionConfig(
-        config=config, interim_results=True
+        config=config, 
+        interim_results=False,
+        # single_utterance = True # 한문장의 끝이라고 판단하면 입력 스트림 닫는 옵션
     )
 
     # 마이크 스트림 생성
