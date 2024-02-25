@@ -9,7 +9,7 @@ from six.moves import queue
 
 import uuid
 import json
-import api.Index as API # 안녕이 서버 모듈 임포트
+import src.api.Index as API # 안녕이 서버 모듈 임포트
 
 # 스트림은 연속으로 305초까지만 열어놓을 수 있다.
 # TODO 305초 이후에 꺼진 스트림을 다시 열어놓을 방법 생각하기.
@@ -240,6 +240,7 @@ def listen_print_loop(responses):
                         # S3에서 음악파일 다운로드 API 호출
                         # Nagative Music List 받기
                         musicFiles = API.downloadMultiFile('music/depress')
+                        print('음악 리스트 동기화 완료.')
                         """
                         musicFiles = ["./Music/Nagative/n-1-001.mp3","../Music/Nagative/n-2-001.mp3","../Music/Nagative/n-3-001.mp3"
                         """

@@ -1,4 +1,4 @@
-import api.Index as API
+import src.api.Index as API
 
 file_path = "index.js"
 file_name = "index.js"
